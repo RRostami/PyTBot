@@ -2,18 +2,49 @@ import sqlite3
 import requests
 import json
 
-BASE_ADDRES='https://api.telegram.org/bot'
-DB_NAME="teleg.db"
+_BASE_ADDRESS='https://api.telegram.org/bot'
+_DB_NAME="teleg.db"
+_time_out=20
+_chunk_size = 2048
 
+
+
+
+
+###################### GLOBAL INTERNAL FUNCTIONS ##############################
 def init_lib():
-	con=sqlite3.connect(DB_NAME)
+	con=sqlite3.connect(_DB_NAME)
 	curs=con.cursor()
 	curs.execute("CREATE TABLE IF NOT EXISTS bots (bot_token CHAR(55) PRIMARY KEY NOT NULL, upid CHAR(12) )")
 	con.commit()
 	con.close()
+def _validate_response_msg(response_str):
+	if(not response_str):
+		return False
+	response = json.loads(response_str)
+	if(not response['ok']):
+		return False
+	return message(response['result'])
+	
+def _validate_response_bool(response_str):
+	if(not response_str):
+		return False
+	response = json.loads(response_str)
+	if(not response['ok']):
+		return False
+	return True
+def _validate_response_raw(response_str):	
+	if(not response_str):
+		return False
+	response = json.loads(response_str)
+	if(not response['ok']):
+		return False	
+	return response['result']
+	
+	
+	
 init_lib()
-
-
+############################## CLASSES #############################
 class bot:
 	def __init__(self,token,name='my_bot'):
 		self._token=token
@@ -21,8 +52,8 @@ class bot:
 		self.name=name
 		self._db_insert_me()
 	######################## INTERNAL METHODS ##########################
-	def _command(self,cmd,para={},method='get',time_out=20):
-		address=BASE_ADDRES+self._token+"/"+cmd
+	def _command(self,cmd,para={},method='get',time_out=_time_out):
+		address=_BASE_ADDRESS+self._token+"/"+cmd
 		
 		if(method=='get'):
 			
@@ -51,10 +82,10 @@ class bot:
 		else:
 			raise Exception("HTTP ERROR "+str(req.status_code) +"\n" + req.text)
 	
-	def _command_upload(self,cmd,file_add,para=None,time_out=75):
-		address=BASE_ADDRES+self._token+"/"+cmd
+	def _command_upload(self,cmd,file_type,file_add,para=None,time_out=_time_out*3):
+		address=_BASE_ADDRESS+self._token+"/"+cmd
 		try:
-			req=requests.post(address,data=para,timeout=time_out,files={'document': open(file_add, 'rb')})
+			req=requests.post(address,data=para,timeout=time_out,files={file_type: open(file_add, 'rb')})
 		except requests.exceptions.Timeout:
 			return None
 		except:
@@ -65,19 +96,19 @@ class bot:
 		elif(req.status_code==404):
 			raise Exception("No such Command")
 		else:
-			raise Exception("HTTP ERROR "+str(req.status_code))
+			raise Exception("HTTP ERROR "+str(req.status_code)+"\n" + req.text)
 			
 			
 	def _db_set_update_id(self,upid):
 		if(upid>self._update_id):
-			con=sqlite3.connect(DB_NAME)
+			con=sqlite3.connect(_DB_NAME)
 			curs=con.cursor()
 			curs.execute("UPDATE bots SET upid=? WHERE bot_token=?",(upid,self._token))
 			con.commit()
 			con.close()
 			
 	def _db_get_update_id(self):
-		con=sqlite3.connect(DB_NAME)
+		con=sqlite3.connect(_DB_NAME)
 		curs=con.cursor()
 		curs.execute("SELECT * FROM bots WHERE bot_token=?",(self._token,))
 		row=curs.fetchone()
@@ -85,38 +116,148 @@ class bot:
 		con.close()
 	
 	def _db_insert_me(self):
-		con=sqlite3.connect(DB_NAME)
+		con=sqlite3.connect(_DB_NAME)
 		curs=con.cursor()
 		curs.execute("INSERT OR IGNORE INTO bots VALUES (?,?)", (self._token,1))
 		con.commit()
 		con.close()
-		
+	
+	
 	######################### API METHODS ######################
 	def getMe(self):
 		''' returns User Object '''
 		response_str = self._command('getMe')
 		if(not response_str):
-			return []
+			return False
 		response = json.loads(response_str)	
 		return response
 	
 	def sendMessage(self,chat_id,text,parse_mode=None,disable_web=None,reply_msg_id=None,markup=None):
+		''' On failure returns False
+		On success returns Message Object '''
 		payload={'chat_id' : chat_id, 'text' : text, 'parse_mode': parse_mode , 'disable_web_page_preview' : disable_web , 'reply_to_message_id' : reply_msg_id}
 		
-		if(markup!=None):
+		if(markup):
 			payload['reply_markup']=json.dumps(markup)
 			
 		response_str = self._command('sendMessage',payload,method='post')
-		if(not response_str):
-			return False
-		response = json.loads(response_str)
-		if(not response['ok']):
-			return False
-		return message(response['result'])
+		
+		return _validate_response_msg(response_str)
 	
+	def forwardMessage(self,chat_id,from_chat_id,message_id):
+		payload={'chat_id' : chat_id, 'from_chat_id' : from_chat_id , 'message_id':message_id }
+		response_str = self._command('forwardMessage',payload)
 
-
-	def getUpdates(self,limit=20):
+		return _validate_response_msg(response_str)
+		
+	def sendPhoto(self,chat_id,photo_id=None,photo_path=None,caption=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id,  'caption' : caption , 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(photo_id):# RESENDING A PHOTO ON TELEGRAM SERVERS	
+			payload['photo'] = photo_id
+			response_str = self._command('sendPhoto',payload,method='post')
+		elif(photo_path): # UPLOADING A NEW PHOTO 
+			response_str = self._command_upload('sendPhoto','photo',photo_path,para=payload)
+		else:	
+			return False
+			
+		return _validate_response_msg(response_str)
+			
+	def sendAudio(self,chat_id,audio_id=None,audio_path=None,duration=None,performer=None,title=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id,  'duration' : duration ,'performer' : performer, 'title' : title, 'reply_to_message_id' : reply_msg_id , caption : "cpTest" }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(audio_id):# RESENDING A FILE ON TELEGRAM SERVERS	
+			payload['audio'] = audio_id
+			response_str = self._command('sendAudio',payload,method='post')
+		elif(audio_path): # UPLOADING A NEW FILE 
+			response_str = self._command_upload('sendAudio','audio',audio_path,para=payload)
+		else:	
+			return False
+		
+		return _validate_response_msg(response_str)
+		
+	def sendDocument(self,chat_id,document_id=None,document_path=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id, 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(document_id):# RESENDING A FILE ON TELEGRAM SERVERS	
+			payload['document'] = document_id
+			response_str = self._command('sendDocument',payload,method='post')
+		elif(document_path): # UPLOADING A NEW FILE 
+			response_str = self._command_upload('sendDocument','document',document_path,para=payload)
+		else:	
+			return False
+		
+		return _validate_response_msg(response_str)
+		
+	def sendSticker(self,chat_id,sticker_id=None,sticker_path=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id, 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(sticker_id):# RESENDING A FILE ON TELEGRAM SERVERS	
+			payload['sticker'] = sticker_id
+			response_str = self._command('sendSticker',payload,method='post')
+		elif(sticker_path): # UPLOADING A NEW FILE 
+			response_str = self._command_upload('sendSticker','sticker',sticker_path,para=payload)
+		else:	
+			return False
+		
+		return _validate_response_msg(response_str)
+		
+	def sendVideo(self,chat_id,video_id=None,video_path=None,duration=None,caption=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id,'duration' : duration, 'caption' : caption, 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(video_id):# RESENDING A FILE ON TELEGRAM SERVERS	
+			payload['video'] = video_id
+			response_str = self._command('sendVideo',payload,method='post')
+		elif(video_path): # UPLOADING A NEW FILE 
+			response_str = self._command_upload('sendVideo','video',video_path,para=payload)
+		else:	
+			return False
+		
+		return _validate_response_msg(response_str)
+		
+	def sendVoice(self,chat_id,voice_id=None,voice_path=None,duration=None,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id,'duration' : duration, 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		
+		if(voice_id):# RESENDING A FILE ON TELEGRAM SERVERS	
+			payload['voice'] = voice_id
+			response_str = self._command('sendVoice',payload,method='post')
+		elif(voice_path): # UPLOADING A NEW FILE 
+			response_str = self._command_upload('sendVoice','voice',voice_path,para=payload)
+		else:	
+			return False
+		
+		return _validate_response_msg(response_str)
+		
+	def sendLocation(self,chat_id,latitude,longitude,reply_msg_id=None,markup=None):
+		payload={'chat_id' : chat_id,'latitude' : latitude,'longitude' : longitude, 'reply_to_message_id' : reply_msg_id }
+		if(markup):
+			payload['reply_markup']=json.dumps(markup)
+		response_str = self._command('sendLocation',payload,method='post')
+		return _validate_response_msg(response_str)
+		
+	def sendChatAction(chat_id,action):
+		payload={'chat_id' : chat_id,'action' : action}
+		response_str = self._command('sendChatAction',payload)
+		return _validate_response_bool(response_str)
+		
+	def getUserProfilePhotos(user_id,offset=None,limit=None):
+		payload={'user_id' : user_id,'offset' : offset, 'limit' : limit}
+		response_str = self._command('getUserProfilePhotos',payload)
+		return _validate_response_raw(response_str)
+		
+	def getUpdates(self,limit=20,auto_upid=True):
 		
 		if(self._update_id==0):
 			self._db_get_update_id()
@@ -129,6 +270,15 @@ class bot:
 		if(not response['ok']):
 			return []
 		updates=[{'upid':update.get('update_id') , 'message': message(update.get('message'))}   for update in response['result'] ]
+		
+		if(auto_upid):
+			max_id=0
+			for update in updates:
+				mupid=int(update.get('upid'))
+				if(max_id<mupid):
+					max_id=mupid
+			self.set_upid(max_id)
+			
 		return updates
 		
 	def getUpdates_raw(self,limit=20):
@@ -168,7 +318,32 @@ class bot:
 			else:
 				return None
 		
+	
+
+
+
+	def getFile_path(file_id):
+		payload={'file_id' : file_id}
+		response_str = self._command('getFile',payload)
+		if(not response_str):
+			return None
+		response = json.loads(response_str)
+		if(not response['ok']):
+			return None
+		file_path=response['result'].get('file_path')
+		return "https://api.telegram.org/file/bot"+self.token+"/"+file_path
 		
+	def getFile_dl(file_id,path=""):
+		f_path=self.getFile_path(file_id)
+		if(f_path):
+			dl =  requests.get(f_path, stream=True,timeout=_time_out)
+			if(req.status_code==200):
+				with open(path+f_path[-10:], 'wb') as f:
+					for chunk in dl.iter_content(_chunk_size):
+						f.write(chunk)
+		return False
+
+	######################## MISC BOT ACTIONS #############################
 	def set_upid(self,upid=None):
 		if(upid!=None):
 			self._db_set_update_id(upid)
