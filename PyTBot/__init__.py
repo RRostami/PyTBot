@@ -159,7 +159,7 @@ class bot:
 		return _validate_response_msg(response_str)
 			
 	def sendAudio(self,chat_id,audio_id=None,audio_path=None,duration=None,performer=None,title=None,reply_msg_id=None,markup=None):
-		payload={'chat_id' : chat_id,  'duration' : duration ,'performer' : performer, 'title' : title, 'reply_to_message_id' : reply_msg_id , caption : "cpTest" }
+		payload={'chat_id' : chat_id,  'duration' : duration ,'performer' : performer, 'title' : title, 'reply_to_message_id' : reply_msg_id }
 		if(markup):
 			payload['reply_markup']=json.dumps(markup)
 		
@@ -204,7 +204,7 @@ class bot:
 		return _validate_response_msg(response_str)
 		
 	def sendVideo(self,chat_id,video_id=None,video_path=None,duration=None,caption=None,reply_msg_id=None,markup=None):
-		payload={'chat_id' : chat_id,'duration' : duration, 'caption' : caption, 'reply_to_message_id' : reply_msg_id }
+		payload={'chat_id' : chat_id,'duration' : duration, 'caption' : caption, 'reply_to_message_id' : reply_msg_id , 'title': "ast.mp4" }
 		if(markup):
 			payload['reply_markup']=json.dumps(markup)
 		

@@ -1,5 +1,5 @@
 # PyTBot
-#### A Pure Python API Wrapper for Telegram Bot API
+##### A Pure Python API Wrapper for Telegram Bot API
 ### Install
 To Install using PIP: 
 `pip install pytbot`
@@ -12,4 +12,6 @@ for update in bot.getUpdates_iter(limit=50):
 	print("{} said: {}".format(update.sender.first_name,update.text))
 	res=bot.sendMessage(update.sender.id,"hi") 
 ```
+Note : getUpdates_iter Automatically keeps track of read messages, so you will only get new messages with each call
+
 
