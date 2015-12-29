@@ -305,7 +305,7 @@ class bot:
 		for update in updates:
 			upid=update.get('update_id')
 			msg=update.get('message')
-			set_upid(upid)
+			self.set_upid(upid)
 			if(msg):
 				yield message(msg)
 			else:
