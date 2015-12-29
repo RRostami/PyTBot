@@ -116,11 +116,6 @@ class bot:
 	
 
 
-
-
-
-
-	
 	def getUpdates(self,limit=20):
 		
 		if(self._update_id==0):
@@ -151,6 +146,29 @@ class bot:
 		updates=response['result']
 		return updates
 
+	def getUpdates_iter(self,limit=20):
+		
+		if(self._update_id==0):
+			self._db_get_update_id()
+		offset=self._update_id+1
+		response_str = self._command('getUpdates',{'limit':limit,'offset':offset})
+		
+		if(not response_str):
+			return None
+		response = json.loads(response_str)
+		if(not response['ok']):
+			return None
+		updates=response['result'] 
+		for update in updates:
+			upid=update.get('update_id')
+			msg=update.get('message')
+			set_upid(upid)
+			if(msg):
+				yield message(msg)
+			else:
+				return None
+		
+		
 	def set_upid(self,upid=None):
 		if(upid!=None):
 			self._db_set_update_id(upid)

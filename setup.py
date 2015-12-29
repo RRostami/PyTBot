@@ -47,7 +47,7 @@ setup(
         'Programming Language :: Python :: 3.4',
     ],
 	keywords='Telegram Bot api',
-	license='MIT'
+	license='MIT',
 	
 	packages=['PyTBot'],
 	install_requires=my_requirements,
