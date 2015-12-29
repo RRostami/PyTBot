@@ -4,7 +4,7 @@ import json
 
 _BASE_ADDRESS='https://api.telegram.org/bot'
 _DB_NAME="teleg.db"
-_time_out=20
+_time_out=None
 _chunk_size = 2048
 
 
@@ -23,7 +23,7 @@ def _validate_response_msg(response_str):
 		return False
 	response = json.loads(response_str)
 	if(not response['ok']):
-		return False
+		return response['result']
 	return message(response['result'])
 	
 def _validate_response_bool(response_str):
@@ -37,8 +37,6 @@ def _validate_response_raw(response_str):
 	if(not response_str):
 		return False
 	response = json.loads(response_str)
-	if(not response['ok']):
-		return False	
 	return response['result']
 	
 	
@@ -61,15 +59,11 @@ class bot:
 				req=requests.get(address,params=para,timeout=time_out)
 			except requests.exceptions.Timeout:
 				return None
-			except:
-				return None
 				
 		elif(method=='post'):
 			try:
 				req=requests.post(address,data=para,timeout=time_out)
 			except requests.exceptions.Timeout:
-				return None
-			except:
 				return None
 		else:
 			raise Exception("{} is not a valid method".format(method))
@@ -82,14 +76,13 @@ class bot:
 		else:
 			raise Exception("HTTP ERROR "+str(req.status_code) +"\n" + req.text)
 	
-	def _command_upload(self,cmd,file_type,file_add,para=None,time_out=_time_out*3):
+	def _command_upload(self,cmd,file_type,file_add,para=None,time_out=_time_out):
 		address=_BASE_ADDRESS+self._token+"/"+cmd
 		try:
 			req=requests.post(address,data=para,timeout=time_out,files={file_type: open(file_add, 'rb')})
 		except requests.exceptions.Timeout:
 			return None
-		except:
-			return None
+		
 		
 		if(req.status_code==200):
 			return req.text
