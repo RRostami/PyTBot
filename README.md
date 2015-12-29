@@ -8,8 +8,8 @@ To Install using PIP:
 ```
 import PyTBot
 bot = PyTBot.bot(my_token)
-res=bot.sendMessage(34823745,"hi") 
 for update in bot.getUpdates_iter(limit=50):
 	print("{} said: {}".format(update.sender.first_name,update.text))
+	res=bot.sendMessage(update.sender.id,"hi") 
 ```
 
