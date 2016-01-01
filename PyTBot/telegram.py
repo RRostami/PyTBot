@@ -2,11 +2,13 @@ import sqlite3
 import requests
 import json
 
+__all__=["bot","_DB_NAME","_time_out","_chunk_size","_no_api_exception"]
+
 _BASE_ADDRESS='https://api.telegram.org/bot'
 _DB_NAME="Pytbot_data.db"
 _time_out=None
 _chunk_size = 2048
-
+_no_api_exception=True
 
 
 
@@ -23,7 +25,7 @@ def _validate_response_msg(response_str):
 		return False
 	response = json.loads(response_str)
 	if(not response['ok']):
-		return response['result']
+		return error_response(response_str)
 	return message(response['result'])
 	
 def _validate_response_bool(response_str):
@@ -37,6 +39,8 @@ def _validate_response_raw(response_str):
 	if(not response_str):
 		return False
 	response = json.loads(response_str)
+	if(not response['ok']):
+		return response
 	return response['result']
 	
 	
@@ -66,9 +70,9 @@ class bot:
 			except requests.exceptions.Timeout:
 				return None
 		else:
-			raise Exception("{} is not a valid method".format(method))
+			raise Exception("{} is not a valid http method".format(method))
 				
-				
+		return req.text		
 		if(req.status_code==200):
 			return req.text
 		elif(req.status_code==404):
@@ -83,7 +87,7 @@ class bot:
 		except requests.exceptions.Timeout:
 			return None
 		
-		
+		return req.text
 		if(req.status_code==200):
 			return req.text
 		elif(req.status_code==404):
@@ -334,6 +338,8 @@ class bot:
 				with open(path+f_path[-10:], 'wb') as f:
 					for chunk in dl.iter_content(_chunk_size):
 						f.write(chunk)
+				return True
+				
 		return False
 
 	######################## MISC BOT ACTIONS #############################
@@ -422,6 +428,23 @@ class chat:
 		self.username = para.get('username')
 		self.first_name = para.get('first_name')
 		self.last_name = para.get('last_name')
+
+
+class error_response:
+	def __init__(self,response,error_code=0):
+		if(response is None):
+			self.detail = "Empty Response"
+			self.code=str(error_code)
+		else:
+			res=json.loads(response)
+			self.detail= res.get('description')
+			self.code= res.get('error_code')
+		print(_no_api_exception)
+		if(_no_api_exception == False):
+			raise Exception("Error {} : {}".format(self.code,self.detail))
+			
+	def is_error(self):
+		return True
 		
 class message:
 	def __init__(self,para):
@@ -486,6 +509,9 @@ class message:
 		else:
 			return None
 			
+	def is_error(self):
+		return False
+		
 class t_photo:
 	def __init__(self,para):
 		self.id=para.get('file_id')
