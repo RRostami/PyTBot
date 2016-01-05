@@ -308,10 +308,16 @@ class bot:
 		updates=response['result'] 
 		for update in updates:
 			upid=update.get('update_id')
-			msg=update.get('message')
 			self.set_upid(upid)
+			msg=update.get('message')
+			inline_q=update.get('inline_query')
+			chosen=update.get('chosen_inline_result')
 			if(msg):
 				yield message(msg)
+			elif (inline_q):
+				yield inline_query(inline_q)
+			elif(chosen):
+				yield chosen_inline_result(chosen)
 			else:
 				return None
 		
@@ -445,7 +451,38 @@ class error_response:
 			
 	def is_error(self):
 		return True
+
+
+class inline_query:
+	def __init__(self,para):
+		if(not para):
+			return None
+		self.type='in_query'	
+		self.id = para.get('id')
+		self.query = para.get('query')
+		self.offset =para.get('offset')
 		
+		self.sender=None
+		tmp_sender=para.get('from')
+		if(tmp_sender):
+			self.sender=user(tmp_sender)
+			
+class chosen_inline_result:
+		def __init__(self,para):
+			if(not para):
+				return None
+			self.type='in_chosen'
+			self.id = para.get('result_id')		
+			self.query = para.get('query')
+			
+			self.sender=None
+			tmp_sender=para.get('from')
+			if(tmp_sender):
+				self.sender=user(tmp_sender)	
+			
+			
+			
+			
 class message:
 	def __init__(self,para):
 		if(not para):
