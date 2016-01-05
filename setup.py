@@ -2,7 +2,7 @@
 See:
 https://github.com/pypa/
 """
-__version__='0.2.dev2'
+__version__='0.3.1'
 from setuptools import setup
 from os import path
 
