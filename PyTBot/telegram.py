@@ -351,6 +351,7 @@ class bot:
 	######################## MISC BOT ACTIONS #############################
 	def set_upid(self,upid=None):
 		if(upid!=None):
+			self._update_id=upid
 			self._db_set_update_id(upid)
 		else:
 			self._db_set_update_id(self._update_id+1)
